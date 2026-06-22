@@ -34,6 +34,24 @@ class QuerySpec:
 class FinanceRetriever:
     """Intent-aware retriever for finance data stored in Chroma."""
 
+    STOCK_RANK_KEYWORDS = [
+        "best",
+        "worst",
+        "least",
+        "bad",
+        "poor",
+        "top",
+        "perform",
+        "performance",
+        "highest",
+        "lowest",
+        "return",
+        "returns",
+        "gain",
+        "profit",
+        "loss",
+    ]
+
     AGGREGATE_KEYWORDS = [
         "total",
         "average",
@@ -181,12 +199,14 @@ class FinanceRetriever:
         query_l = query.lower()
         group_by_sector = "sector" in query_l and sector_intent == "general"
         group_by_stock = ("stock" in query_l or "stocks" in query_l) and any(
-            token in query_l for token in ["best", "worst", "least", "bad", "top", "perform"]
+            token in query_l for token in self.STOCK_RANK_KEYWORDS
         )
         stock_rank_mode = "best"
-        if any(token in query_l for token in ["worst", "least", "bad", "poor"]):
+        if any(token in query_l for token in ["worst", "least", "bad", "poor", "lowest", "loss"]):
             stock_rank_mode = "worst"
-        if "best" in query_l and any(token in query_l for token in ["worst", "least", "bad"]):
+        if any(token in query_l for token in ["best", "highest", "top"]) and any(
+            token in query_l for token in ["worst", "least", "bad", "lowest"]
+        ):
             stock_rank_mode = "both"
         year_match = re.search(r"\b(19|20)\d{2}\b", query)
         year = year_match.group(0) if year_match else None
@@ -461,9 +481,9 @@ class FinanceRetriever:
             .reset_index(drop=True)
         )
 
-    def smart_retrieve(self, query: str, k: int = 4) -> list[Document]:
+    def smart_retrieve(self, query: str, k: int = 600) -> list[Document]:
         """Intent-aware retrieval with optional sector filtering."""
-        docs = self.get_vector_store().similarity_search(query, k=max(k * 5, 20))
+        docs = self.get_vector_store().similarity_search(query, k=600)
         sector_intent = self.detect_sector_intent(query)
         docs = self._filter_documents_by_sector_intent(docs, sector_intent)
 
@@ -552,7 +572,7 @@ def get_sector_aggregate_results(
     )
 
 
-def retrieve_context(query: str, k: int = 4) -> list[Document]:
+def retrieve_context(query: str, k: int = 600) -> list[Document]:
     return _DEFAULT_RETRIEVER.retrieve_context(query, k=k)
 
 
